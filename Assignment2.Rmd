@@ -1,0 +1,709 @@
+---
+title: "Computational Modeling - Week 4 - Assignment 2 - Part 1"
+author: "Riccardo Fusaroli"
+date: "2/19/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## In this assignment we learn how to assess rates from a binomial distribution, using the case of assessing your teachers' knowledge of CogSci
+
+### First part
+
+You want to assess your teachers' knowledge of cognitive science. "These guys are a bunch of drama(turgist) queens, mindless philosophers, chattering communication people and Russian spies. Do they really know CogSci?", you think.
+
+To keep things simple (your teachers should not be faced with too complicated things):
+- You created a pool of equally challenging questions on CogSci
+- Each question can be answered correctly or not (we don't allow partially correct answers, to make our life simpler).
+- Knowledge of CogSci can be measured on a scale from 0 (negative knowledge, all answers wrong) through 0.5 (random chance) to 1 (awesome CogSci superpowers)
+
+This is the data:
+- Riccardo: 3 correct answers out of 6 questions
+- Kristian: 2 correct answers out of 2 questions (then he gets bored)
+- Josh: 160 correct answers out of 198 questions (Josh never gets bored)
+- Mikkel: 66 correct answers out of 132 questions
+
+Questions:
+
+1. What's Riccardo's estimated knowledge of CogSci? What is the probability he knows more than chance (0.5) [try figuring this out. if you can't peek into chapters 3.1 and 3.2 and/or the slides]?
+- First implement a grid approximation (hint check paragraph 2.4.1!) with a uniform prior, calculate the posterior and plot the results
+- Then implement a quadratic approximation (hint check paragraph 2.4.2!).
+- N.B. for the rest of the exercise just keep using the grid approximation (we'll move to quadratic approximations in two classes)
+
+```{r}
+
+pacman::p_load(ggplot2, tidyverse, gridExtra)
+
+### ----------------------------- ###
+### BEGIN WITH USING A FLAT PRIOR ###
+### ----------------------------- ###
+
+# Data
+d <- data.frame(
+  Correct=c(3,2,160,66),
+  Questions=c(6,2,198,132),
+  Teacher=c("RF","KT","JS","MW"))
+
+# Define the grid
+dens = 20
+p_grid = seq( from=0 , to=1 , length.out=dens)
+prior <- rep(1, dens) # Flat prior
+
+# Compute the likelihood at each value in grid
+likely_RF <- dbinom(3 , size = 6 , prob=p_grid)
+
+# Compute posterior
+unstd.posterior_RF <- likely_RF * prior
+
+# Standardize
+posterior_RF <- unstd.posterior_RF / sum(unstd.posterior_RF)
+
+# PLOT
+# Data RF
+Data=data.frame(grid=p_grid,
+                posterior=posterior_RF,
+                prior=prior,
+                likelihood=likely_RF)
+
+# Plot RF
+p1 = ggplot(Data,aes(grid,posterior))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability") +
+  ggtitle("Riccardo F")
+
+p1
+
+### Quadraticapproximation
+
+library(rethinking)
+globe.qa <- map( alist( w ~ dbinom(6,p) , # binomial likelihood, 6 questions answered
+                        p ~ dunif(0,1) # uniform prior
+                        ),
+                 data=list(w=3)) # 3 correct
+# display summary of quadratic approximation 
+precis(globe.qa)
+
+# check if it's accurate
+w <- 6
+n <- 9
+curve( dbeta( x , w+1 , n-w+1 ) , from=0 , to=1 )
+# quadratic approximation
+curve( dnorm( x , 0.67 , 0.16 ) , lty=2 , add=TRUE ) #does not add it to it??
+
+
+
+# How likely is he above chance?
+sum(posterior_RF[p_grid > 0.8])
+
+```
+
+Riccardo is most likely at chance level according to this prior. Mean is 0.5 and stddev is 0.2.
+
+2. Estimate all the teachers' knowledge of CogSci. Who's best? Use grid approximation. Comment on the posteriors of Riccardo and Mikkel.
+2a. Produce plots of the prior, and posterior for each teacher.
+
+```{r}
+# Calculate likelihoods for all
+likely_KT <- dbinom(2 , size = 2 , prob=p_grid)
+likely_JS <- dbinom(160 , size = 198 , prob=p_grid)
+likely_MW <- dbinom(66 , size = 132 , prob=p_grid)
+
+# Compute posterior
+unstd.posterior_KT <- likely_KT * prior
+unstd.posterior_JS <- likely_JS * prior
+unstd.posterior_MW <- likely_MW * prior
+
+# Standardize
+posterior_KT <- unstd.posterior_KT / sum(unstd.posterior_KT)
+posterior_JS <- unstd.posterior_JS / sum(unstd.posterior_JS)
+posterior_MW <- unstd.posterior_MW / sum(unstd.posterior_MW)
+
+### PLOT ALL OF THEM###
+# Data RF
+Data=data.frame(grid=p_grid,
+                posterior=posterior_RF,
+                prior=prior,
+                likelihood=likely_RF)
+
+# Plot RF
+p1 = ggplot(Data,aes(grid,posterior))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability") +
+  ggtitle("Riccardo F")+
+  ylim(0,1)
+
+# Data KT
+data1 = data.frame(grid=p_grid,
+                posterior=posterior_KT,
+                prior=prior,
+                likelihood=likely_KT)
+# Plot KT
+p2 =ggplot(data1,aes(grid,posterior_KT))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Kristian T")+
+  ylim(0,1)
+
+# Data JS
+data2 = data.frame(grid=p_grid,
+                posterior=posterior_JS,
+                prior=prior,
+                likelihood=likely_JS)
+# Plot JS
+p3=ggplot(data2,aes(grid,posterior_JS))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Joshua S")+
+  ylim(0,1)
+
+# Data MW
+data3 = data.frame(grid=p_grid,
+                posterior=posterior_MW,
+                prior=prior,
+                likelihood=likely_MW)
+# Plot MW
+p4=ggplot(data3,aes(grid,posterior_MW))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Mikkel W")+
+  ylim(0,1)
+
+pacman::p_load(gridExtra)
+gridExtra::grid.arrange(p1,p2,p3,p4)
+```
+Posteriors of Riccardo: he seems largely at chance level with a low posterior probability (0.10ish)
+Mikkel: Chance level with a higher posterior probability (0.4) and narrower distribution
+
+3. Change the prior. Given your teachers have all CogSci jobs, you should start with a higher appreciation of their knowledge: the prior is a normal distribution with a mean of 0.8 and a standard deviation of 0.2. Do the results change (and if so how)?
+3a. Produce plots of the prior and posterior for each teacher.
+
+```{r}
+# New prior
+prior <- dnorm(p_grid, mean=0.8, sd=0.2)
+
+# Likelihoods don't change, prior does
+
+# Compute posterior
+unstd.posterior_RF <- likely_RF * prior
+unstd.posterior_KT <- likely_KT * prior
+unstd.posterior_JS <- likely_JS * prior
+unstd.posterior_MW <- likely_MW * prior
+
+# Standardize
+posterior_RF <- unstd.posterior_RF / sum(unstd.posterior_RF)
+posterior_KT <- unstd.posterior_KT / sum(unstd.posterior_KT)
+posterior_JS <- unstd.posterior_JS / sum(unstd.posterior_JS)
+posterior_MW <- unstd.posterior_MW / sum(unstd.posterior_MW)
+
+### PLOT ALL OF THEM###
+# Data RF
+Data=data.frame(grid=p_grid,
+                posterior=posterior_RF,
+                prior=prior,
+                likelihood=likely_RF)
+
+# Plot RF
+f1 = ggplot(Data,aes(grid,posterior))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability") +
+  ggtitle("Riccardo F")+
+  ylim(0,1)
+
+# Data KT
+data1 = data.frame(grid=p_grid,
+                posterior=posterior_KT,
+                prior=prior,
+                likelihood=likely_KT)
+# Plot KT
+f2 =ggplot(data1,aes(grid,posterior_KT))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Kristian T")+
+  ylim(0,1)
+
+# Data JS
+data2 = data.frame(grid=p_grid,
+                posterior=posterior_JS,
+                prior=prior,
+                likelihood=likely_JS)
+# Plot JS
+f3=ggplot(data2,aes(grid,posterior_JS))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Joshua S")+
+  ylim(0,1)
+
+# Data MW
+data3 = data.frame(grid=p_grid,
+                posterior=posterior_MW,
+                prior=prior,
+                likelihood=likely_MW)
+# Plot MW
+f4=ggplot(data3,aes(grid,posterior_MW))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Mikkel W")+
+  ylim(0,1)
+
+# All at once
+gridExtra::grid.arrange(f1,f2,f3,f4)
+
+# Compating old to new
+gridExtra::grid.arrange(p1,f1)
+gridExtra::grid.arrange(p2,f2)
+gridExtra::grid.arrange(p3,f3)
+gridExtra::grid.arrange(p4,f4)
+
+```
+The results change:
+Riccardo now has a higher than chance level of knowing. Mikkel is slightly likely to be better.
+
+4. You go back to your teachers and collect more data (multiply the previous numbers by 100). Calculate their knowledge with both a uniform prior and a normal prior with a mean of 0.8 and a standard deviation of 0.2. Do you still see a difference between the results? Why?
+
+```{r}
+# Add data
+### ------------- ###
+### UNIFORM PRIOR ###
+### ------------- ###
+
+dens = 20
+p_grid = seq( from=0 , to=1 , length.out=dens)
+prior <- rep(1, dens) # Flat prior
+
+# Likelihoods change
+likely_RF <- dbinom(300 , size = 600 , prob=p_grid)
+likely_KT <- dbinom(200 , size = 200 , prob=p_grid)
+likely_JS <- dbinom(16000 , size = 19800 , prob=p_grid)
+likely_MW <- dbinom(6600 , size = 13200 , prob=p_grid)
+
+# Compute posterior
+unstd.posterior_RF <- likely_RF * prior
+unstd.posterior_KT <- likely_KT * prior
+unstd.posterior_JS <- likely_JS * prior
+unstd.posterior_MW <- likely_MW * prior
+
+# Standardize
+posterior_RF <- unstd.posterior_RF / sum(unstd.posterior_RF)
+posterior_KT <- unstd.posterior_KT / sum(unstd.posterior_KT)
+posterior_JS <- unstd.posterior_JS / sum(unstd.posterior_JS)
+posterior_MW <- unstd.posterior_MW / sum(unstd.posterior_MW)
+
+### PLOT ALL OF THEM###
+# Data RF
+Data=data.frame(grid=p_grid,
+                posterior=posterior_RF,
+                prior=prior,
+                likelihood=likely_RF)
+
+# Plot RF
+p1 = ggplot(Data,aes(grid,posterior))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability") +
+  ggtitle("Riccardo F")+
+  ylim(0,1)
+
+# Data KT
+data1 = data.frame(grid=p_grid,
+                posterior=posterior_KT,
+                prior=prior,
+                likelihood=likely_KT)
+# Plot KT
+p2 =ggplot(data1,aes(grid,posterior_KT))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Kristian T")+
+  ylim(0,1)
+
+# Data JS
+data2 = data.frame(grid=p_grid,
+                posterior=posterior_JS,
+                prior=prior,
+                likelihood=likely_JS)
+# Plot JS
+p3=ggplot(data2,aes(grid,posterior_JS))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Joshua S")+
+  ylim(0,1)
+
+# Data MW
+data3 = data.frame(grid=p_grid,
+                posterior=posterior_MW,
+                prior=prior,
+                likelihood=likely_MW)
+# Plot MW
+p4=ggplot(data3,aes(grid,posterior_MW))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Mikkel W")+
+  ylim(0,1)
+
+uniform = gridExtra::grid.arrange(p1,p2,p3,p4)
+
+### ------------ ###
+### NORMAL PRIOR ###
+### ------------ ###
+
+prior <- dnorm(p_grid, mean=0.8, sd=0.2)
+
+# Likelihoods change
+likely_RF <- dbinom(300 , size = 600 , prob=p_grid)
+likely_KT <- dbinom(200 , size = 200 , prob=p_grid)
+likely_JS <- dbinom(16000 , size = 19800 , prob=p_grid)
+likely_MW <- dbinom(6600 , size = 13200 , prob=p_grid)
+
+# Compute posterior
+unstd.posterior_RF <- likely_RF * prior
+unstd.posterior_KT <- likely_KT * prior
+unstd.posterior_JS <- likely_JS * prior
+unstd.posterior_MW <- likely_MW * prior
+
+# Standardize
+posterior_RF <- unstd.posterior_RF / sum(unstd.posterior_RF)
+posterior_KT <- unstd.posterior_KT / sum(unstd.posterior_KT)
+posterior_JS <- unstd.posterior_JS / sum(unstd.posterior_JS)
+posterior_MW <- unstd.posterior_MW / sum(unstd.posterior_MW)
+
+### PLOT ALL OF THEM###
+# Data RF
+Data=data.frame(grid=p_grid,
+                posterior=posterior_RF,
+                prior=prior,
+                likelihood=likely_RF)
+
+# Plot RF
+p1 = ggplot(Data,aes(grid,posterior))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability") +
+  ggtitle("Riccardo F")+
+  ylim(0,1)
+
+# Data KT
+data1 = data.frame(grid=p_grid,
+                posterior=posterior_KT,
+                prior=prior,
+                likelihood=likely_KT)
+# Plot KT
+p2 =ggplot(data1,aes(grid,posterior_KT))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Kristian T")+
+  ylim(0,1)
+
+# Data JS
+data2 = data.frame(grid=p_grid,
+                posterior=posterior_JS,
+                prior=prior,
+                likelihood=likely_JS)
+# Plot JS
+p3=ggplot(data2,aes(grid,posterior_JS))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Joshua S")+
+  ylim(0,1)
+
+# Data MW
+data3 = data.frame(grid=p_grid,
+                posterior=posterior_MW,
+                prior=prior,
+                likelihood=likely_MW)
+# Plot MW
+p4=ggplot(data3,aes(grid,posterior_MW))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Mikkel W")+
+  ylim(0,1)
+
+norm = gridExtra::grid.arrange(p1,p2,p3,p4)
+posterior_JS
+
+```
+
+
+5. Imagine you're a skeptic and think your teachers do not know anything about CogSci, given the content of their classes. How would you operationalize that belief?
+Prior would then be leaning towards 0.2 for example, meaning that its most likely they dont know anything
+
+```{r}
+# New prior
+prior <- dnorm(p_grid, mean=0.2, sd=0.2)
+
+### ------------- ###
+### ORIGINAL DATA ###
+### ------------- ###
+
+# Calculate likelihoods for all
+likely_RF <- dbinom(3 , size = 6 , prob=p_grid)
+likely_KT <- dbinom(2 , size = 2 , prob=p_grid)
+likely_JS <- dbinom(160 , size = 198 , prob=p_grid)
+likely_MW <- dbinom(66 , size = 132 , prob=p_grid)
+
+# Compute posterior
+unstd.posterior_RF <- likely_RF * prior
+unstd.posterior_KT <- likely_KT * prior
+unstd.posterior_JS <- likely_JS * prior
+unstd.posterior_MW <- likely_MW * prior
+
+# Standardize
+posterior_RF <- unstd.posterior_RF / sum(unstd.posterior_RF)
+posterior_KT <- unstd.posterior_KT / sum(unstd.posterior_KT)
+posterior_JS <- unstd.posterior_JS / sum(unstd.posterior_JS)
+posterior_MW <- unstd.posterior_MW / sum(unstd.posterior_MW)
+
+### PLOT ALL OF THEM###
+# Data RF
+Data=data.frame(grid=p_grid,
+                posterior=posterior_RF,
+                prior=prior,
+                likelihood=likely_RF)
+
+# Plot RF
+p1 = ggplot(Data,aes(grid,posterior))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability") +
+  ggtitle("Riccardo F")+
+  ylim(0,1)
+
+# Data KT
+data1 = data.frame(grid=p_grid,
+                posterior=posterior_KT,
+                prior=prior,
+                likelihood=likely_KT)
+# Plot KT
+p2 =ggplot(data1,aes(grid,posterior_KT))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Kristian T")+
+  ylim(0,1)
+
+# Data JS
+data2 = data.frame(grid=p_grid,
+                posterior=posterior_JS,
+                prior=prior,
+                likelihood=likely_JS)
+# Plot JS
+p3=ggplot(data2,aes(grid,posterior_JS))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Joshua S")+
+  ylim(0,1)
+
+# Data MW
+data3 = data.frame(grid=p_grid,
+                posterior=posterior_MW,
+                prior=prior,
+                likelihood=likely_MW)
+# Plot MW
+p4=ggplot(data3,aes(grid,posterior_MW))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Mikkel W")+
+  ylim(0,1)
+
+gridExtra::grid.arrange(p1,p2,p3,p4)
+
+### --------------- ###
+### WITH EXTRA DATA ###
+### --------------- ###
+
+# Likelihoods change
+likely_RF <- dbinom(300 , size = 600 , prob=p_grid)
+likely_KT <- dbinom(200 , size = 200 , prob=p_grid)
+likely_JS <- dbinom(16000 , size = 19800 , prob=p_grid)
+likely_MW <- dbinom(6600 , size = 13200 , prob=p_grid)
+
+# Compute posterior
+unstd.posterior_RF <- likely_RF * prior
+unstd.posterior_KT <- likely_KT * prior
+unstd.posterior_JS <- likely_JS * prior
+unstd.posterior_MW <- likely_MW * prior
+
+# Standardize
+posterior_RF <- unstd.posterior_RF / sum(unstd.posterior_RF)
+posterior_KT <- unstd.posterior_KT / sum(unstd.posterior_KT)
+posterior_JS <- unstd.posterior_JS / sum(unstd.posterior_JS)
+posterior_MW <- unstd.posterior_MW / sum(unstd.posterior_MW)
+
+### PLOT ALL OF THEM###
+# Data RF
+Data=data.frame(grid=p_grid,
+                posterior=posterior_RF,
+                prior=prior,
+                likelihood=likely_RF)
+
+# Plot RF
+p1 = ggplot(Data,aes(grid,posterior))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability") +
+  ggtitle("Riccardo F")+
+  ylim(0,1)
+
+# Data KT
+data1 = data.frame(grid=p_grid,
+                posterior=posterior_KT,
+                prior=prior,
+                likelihood=likely_KT)
+# Plot KT
+p2 =ggplot(data1,aes(grid,posterior_KT))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Kristian T")+
+  ylim(0,1)
+
+# Data JS
+data2 = data.frame(grid=p_grid,
+                posterior=posterior_JS,
+                prior=prior,
+                likelihood=likely_JS)
+# Plot JS
+p3=ggplot(data2,aes(grid,posterior_JS))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Joshua S")+
+  ylim(0,1)
+
+# Data MW
+data3 = data.frame(grid=p_grid,
+                posterior=posterior_MW,
+                prior=prior,
+                likelihood=likely_MW)
+# Plot MW
+p4=ggplot(data3,aes(grid,posterior_MW))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior/dens),color='red')+  
+  xlab("Probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Mikkel W")+
+  ylim(0,1)
+
+gridExtra::grid.arrange(p1,p2,p3,p4)
+
+```
+
+Hmmmm
+
+6. Optional question: Can you estimate the difference between Riccardo's estimated knowledge and that of each of the other teachers? Would you deem it credible (that is, would you believe that it is actually different)?
+
+7. Bonus knowledge: all the stuff we have done can be implemented in a lme4-like fashion using the brms package. Here is an example.
+```{r}
+pacman::p_load(brms)
+library(brms)
+d <- data.frame(
+  Correct=c(3,2,160,66),
+  Questions=c(6,2,198,132),
+  Teacher=c("RF","KT","JS","MW"))
+
+FlatModel <- brm(Correct|trials(Questions)~1,data=subset(d,Teacher=="RF"),prior=prior("uniform(0,1)", class = "Intercept"))
+plot(FlatModel)
+PositiveModel <- brm(Correct|trials(Questions)~1,data=subset(d,Teacher=="RF"),prior=prior("normal(0.8,0.2)", class = "Intercept"))
+plot(PositiveModel)
+SkepticalModel <- brm(Correct|trials(Questions)~1,data=subset(d,Teacher=="RF"),prior=prior("normal(0.5,0.01)", class = "Intercept"))
+plot(SkepticalModel)
+```
+
+If you dare, try to tweak the data and model to test two hypotheses:
+- Is Kristian different from Josh?
+- Is Josh different from chance?
+
+
+
