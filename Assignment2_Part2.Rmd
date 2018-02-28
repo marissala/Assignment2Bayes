@@ -1,0 +1,274 @@
+---
+title: "Computational Modeling - Week 5 - Assignment 2 - Part 2"
+author: "Riccardo Fusaroli"
+date: "2/19/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## In this assignment we learn how to assess rates from a binomial distribution, using the case of assessing your teachers' knowledge of CogSci.
+
+### Second part: Focusing on predictions
+
+Last year you assessed the teachers (darned time runs quick!). Now you want to re-test them and assess whether your models are producing reliable predictions. In Methods 3 we learned how to do machine-learning style assessment of predictions (e.g. rmse on testing datasets). Bayesian stats makes things a bit more complicated. So we'll try out how that works. N.B. You can choose which prior to use for the analysis of last year's data.
+
+Questions to be answered (but see guidance below):
+1- Write a paragraph discussing how assessment of prediction performance is different in Bayesian vs. frequentist models
+2- Provide at least one plot and one written line discussing prediction errors for each of the teachers.
+
+This is the old data:
+- Riccardo: 3 correct answers out of 6 questions
+- Kristian: 2 correct answers out of 2 questions (then he gets bored)
+- Josh: 160 correct answers out of 198 questions (Josh never gets bored)
+- Mikkel: 66 correct answers out of 132 questions
+
+This is the new data:
+- Riccardo: 9 correct answers out of 10 questions (then he freaks out about teaching preparation and leaves)
+- Kristian: 8 correct answers out of 12 questions
+- Josh: 148 correct answers out of 172 questions (again, Josh never gets bored)
+- Mikkel: 34 correct answers out of 65 questions
+
+Guidance Tips
+
+1. There are at least two ways of assessing predictions.
+2. Last year's results are this year's expectations.
+3. Are the parameter estimates changing? (way 1) (posterior)
+4. How does the new data look in last year's predictive posterior? (way 2)
+
+```{r}
+pacman::p_load(ggplot2, tidyverse, gridExtra)
+
+### ------------------------------------------------ ###
+### BEGIN WITH USING A FLAT PRIOR ON OLD DATA FOR RF ###
+### ------------------------------------------------ ###
+
+# Define the grid
+dens = 20
+p_grid = seq( from=0 , to=1 , length.out=dens)
+prior <- rep(1, dens) # Flat prior
+
+# Compute the likelihood at each value in grid
+likely_RF <- dbinom(3 , size = 6 , prob=p_grid)
+
+# Compute posterior
+unstd.posterior_RF <- likely_RF * prior
+
+# Standardize
+posterior_RF <- unstd.posterior_RF / sum(unstd.posterior_RF)
+
+### ---------------------------------------- ###
+### USE THAT POSTERIOR AS PRIOR FOR NEW DATA ###
+### ---------------------------------------- ###
+
+# Old posterior becomes new prior
+prior <- posterior_RF
+
+# Compute the likelihood at each value in grid
+likely_RF <- dbinom(9 , size = 10 , prob=p_grid)
+
+# Compute posterior
+unstd.posterior_RF <- likely_RF * prior
+
+# Standardize
+posterior_RF <- unstd.posterior_RF / sum(unstd.posterior_RF)
+
+# PLOT
+# Data RF
+Data=data.frame(grid=p_grid,
+                posterior=posterior_RF,
+                prior=prior,
+                likelihood=likely_RF)
+
+# Plot RF
+p1 = ggplot(Data,aes(grid,posterior))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior),color='red')+  
+  xlab("New probability of being cool at CogSci")+ 
+  ylab("Posterior probability") +
+  ggtitle("Riccardo F")
+
+p1
+
+### --------------------------- ###
+### A DIFFERENT WAY FROM SLIDES ###
+### --------------------------- ###
+
+# Define the grid
+dens = 20
+p_grid = seq( from=0 , to=1 , length.out=dens)
+prior <- rep(1, dens) # Flat prior
+
+# Compute the likelihood at each value in grid
+likely_RF <- dbinom(3 , size = 6 , prob=p_grid)
+
+# Compute posterior
+unstd.posterior_RF <- likely_RF * prior
+
+# Standardize
+posterior_RF <- unstd.posterior_RF / sum(unstd.posterior_RF)
+
+# Get the samples
+samples <- sample(p_grid , prob=posterior_RF , size=1e4 , replace=TRUE )
+
+# Sample all possible p's, weigh them with posterior likelihood of each value of p
+w <- rbinom( 1e4 , size = 10 , prob = samples)
+
+# Make the histogram
+simplehist(w)
+
+```
+
+
+```{r}
+### ---------------------------- ###
+### REPEAT FIRST SOLUTION ON ALL ###
+### ---------------------------- ###
+
+### OLD DATA AND CALCULATE POSTERIORS ###
+
+# Optimistic prior
+prior <- dnorm(p_grid, mean=0.8, sd=0.2)
+
+# Calculate likelihoods for all
+likely_RF <- dbinom(3 , size = 6 , prob=p_grid)
+likely_KT <- dbinom(2 , size = 2 , prob=p_grid)
+likely_JS <- dbinom(160 , size = 198 , prob=p_grid)
+likely_MW <- dbinom(66 , size = 132 , prob=p_grid)
+
+# Compute posterior
+unstd.posterior_RF <- likely_RF * prior
+unstd.posterior_KT <- likely_KT * prior
+unstd.posterior_JS <- likely_JS * prior
+unstd.posterior_MW <- likely_MW * prior
+
+# Standardize
+posterior_RF <- unstd.posterior_RF / sum(unstd.posterior_RF)
+posterior_KT <- unstd.posterior_KT / sum(unstd.posterior_KT)
+posterior_JS <- unstd.posterior_JS / sum(unstd.posterior_JS)
+posterior_MW <- unstd.posterior_MW / sum(unstd.posterior_MW)
+
+### ---------------------------------------- ###
+### USE THAT POSTERIOR AS PRIOR FOR NEW DATA ###
+### ---------------------------------------- ###
+
+# Old posterior becomes new prior
+prior_RF <- posterior_RF
+prior_KT <- posterior_KT
+prior_JS <- posterior_JS
+prior_MW <- posterior_MW
+
+### NEW DATA AND CALCULATE NEW POSTERIORS ###
+
+# Calculate likelihoods for all
+likely_RF <- dbinom(9 , size = 10 , prob=p_grid)
+likely_KT <- dbinom(8 , size = 12 , prob=p_grid)
+likely_JS <- dbinom(148 , size = 172 , prob=p_grid)
+likely_MW <- dbinom(34 , size = 65 , prob=p_grid)
+
+# Compute posterior
+unstd.posterior_RF <- likely_RF * prior_RF
+unstd.posterior_KT <- likely_KT * prior_KT
+unstd.posterior_JS <- likely_JS * prior_JS
+unstd.posterior_MW <- likely_MW * prior_MW
+
+# Standardize
+posterior_RF <- unstd.posterior_RF / sum(unstd.posterior_RF)
+posterior_KT <- unstd.posterior_KT / sum(unstd.posterior_KT)
+posterior_JS <- unstd.posterior_JS / sum(unstd.posterior_JS)
+posterior_MW <- unstd.posterior_MW / sum(unstd.posterior_MW)
+
+### PLOT ALL OF THEM ###
+# Data RF
+Data=data.frame(grid=p_grid,
+                posterior=posterior_RF,
+                prior=prior_RF,
+                likelihood=likely_RF)
+
+# Plot RF
+p1 = ggplot(Data,aes(grid,posterior))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior_RF),color='red')+  
+  xlab("New probability of being cool at CogSci")+ 
+  ylab("Posterior probability") +
+  ggtitle("Riccardo F")+
+  ylim(0,1)
+
+# Data KT
+data1 = data.frame(grid=p_grid,
+                posterior=posterior_KT,
+                prior=prior_KT,
+                likelihood=likely_KT)
+# Plot KT
+p2 =ggplot(data1,aes(grid,posterior_KT))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior_KT),color='red')+  
+  xlab("New probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Kristian T")+
+  ylim(0,1)
+
+# Data JS
+data2 = data.frame(grid=p_grid,
+                posterior=posterior_JS,
+                prior=prior_JS,
+                likelihood=likely_JS)
+# Plot JS
+p3=ggplot(data2,aes(grid,posterior_JS))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior_JS),color='red')+  
+  xlab("New probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Joshua S")+
+  ylim(0,1)
+
+# Data MW
+data3 = data.frame(grid=p_grid,
+                posterior=posterior_MW,
+                prior=prior_MW,
+                likelihood=likely_MW)
+# Plot MW
+p4=ggplot(data3,aes(grid,posterior_MW))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior_MW),color='red')+  
+  xlab("New probability of being cool at CogSci")+ 
+  ylab("Posterior probability")+
+  ggtitle("Mikkel W")+
+  ylim(0,1)
+
+gridExtra::grid.arrange(p1,p2,p3,p4)
+
+```
+
+
+### Depending on time: Questions from the handbook
+2H1. Suppose there are two species of panda bear. Both are equally common in the wild and live in the same places. They look exactly alike and eat the same food, and there is yet no genetic assay capable of telling them apart. They differ however in their family sizes. Species A gives birth to twins 10% of the time, otherwise birthing a single infant. Species B births twins 20% of the time, otherwise birthing singleton infants. Assume these numbers are known with certainty, from many years of field research.
+Now suppose you are managing a captive panda breeding program. You have a new female panda of unknown species, and she has just given birth to twins. What is the probability that her next birth will also be twins?
+
+```{r}
+
+
+
+```
+
+
+2H2. Recall all the facts from the problem above. Now compute the probability that the panda we have is from species A, assuming we have observed only the first birth and that it was twins.
+
+2H3. Continuing on from the previous problem, suppose the same panda mother has a second birth and that it is not twins, but a singleton infant. Compute the posterior probability that this panda is species A.
+
+2H4. A common boast of Bayesian statisticians is that Bayesian inference makes it easy to use all of the data, even if the data are of different types. So suppose now that a veterinarian comes along who has a new genetic test that she claims can identify the species of our mother panda. But the test, like all tests, is imperfect. This is the information you have about the test:
+- The probability it correctly identifies a species A panda is 0.8.
+- The probability it correctly identifies a species B panda is 0.65.
+The vet administers the test to your panda and tells you that the test is positive for species A. First ignore your previous information from the births and compute the posterior probability that your panda is species A. Then redo your calculation, now using the birth data as well.
