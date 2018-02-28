@@ -496,7 +496,7 @@ Prior would then be leaning towards 0.2 for example, meaning that its most likel
 
 ```{r}
 # New prior
-prior <- dnorm(p_grid, mean=0.2, sd=0.2)
+prior <- dnorm(p_grid, mean=0.5, sd=0.2)
 
 ### ------------- ###
 ### ORIGINAL DATA ###
