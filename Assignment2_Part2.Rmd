@@ -39,7 +39,7 @@ Guidance Tips
 4. How does the new data look in last year's predictive posterior? (way 2)
 
 ```{r}
-pacman::p_load(ggplot2, tidyverse, gridExtra)
+pacman::p_load(ggplot2, tidyverse, gridExtra, rethinking)
 
 ### ------------------------------------------------ ###
 ### BEGIN WITH USING A FLAT PRIOR ON OLD DATA FOR RF ###
@@ -249,7 +249,6 @@ p4=ggplot(data3,aes(grid,posterior_MW))+
   ylim(0,1)
 
 gridExtra::grid.arrange(p1,p2,p3,p4)
-
 ```
 
 
@@ -257,9 +256,75 @@ gridExtra::grid.arrange(p1,p2,p3,p4)
 2H1. Suppose there are two species of panda bear. Both are equally common in the wild and live in the same places. They look exactly alike and eat the same food, and there is yet no genetic assay capable of telling them apart. They differ however in their family sizes. Species A gives birth to twins 10% of the time, otherwise birthing a single infant. Species B births twins 20% of the time, otherwise birthing singleton infants. Assume these numbers are known with certainty, from many years of field research.
 Now suppose you are managing a captive panda breeding program. You have a new female panda of unknown species, and she has just given birth to twins. What is the probability that her next birth will also be twins?
 
+Can be twins 10% or 20% of the time
+New panda and has twins
+
+10% twins and 90% single
+20% twins and 80% single
+
 ```{r}
 
 
+
+
+dens = 20
+p_grid = seq( from=0 , to=1 , length.out=dens)
+prior <- rep(1, dens) # Flat prior
+
+prior <- dnorm(p_grid, mean=0.9, sd=0.1)
+
+# Compute the likelihood at each value in grid
+likely_RF <- dbinom(1 , size = 2 , prob=p_grid)
+
+# Compute posterior
+unstd.posterior_RF <- likely_RF * prior
+
+# Standardize
+posterior_RF <- unstd.posterior_RF / sum(unstd.posterior_RF)
+
+# PLOT
+# Data RF
+Data=data.frame(grid=p_grid,
+                posterior=posterior_RF,
+                prior=prior,
+                likelihood=likely_RF)
+
+# Plot RF
+p1 = ggplot(Data,aes(grid,posterior))+  
+  geom_point()+
+  geom_line()+
+  theme_classic()+  
+  geom_line(aes(grid,prior),color='red')+  
+  xlab("New probability of being cool at CogSci")+ 
+  ylab("Posterior probability") +
+  ggtitle("Riccardo F")
+
+p1
+
+
+
+# Define the grid
+dens = 20
+p_grid = seq(from=0 , to=1 , length.out=dens)
+prior <- rep(1, dens) # Flat prior
+
+# Compute the likelihood at each value in grid
+likely_RF <- dbinom(9 , size = 10 , prob=p_grid)
+
+# Compute posterior
+unstd.posterior_RF <- likely_RF * prior
+
+# Standardize
+posterior_RF <- unstd.posterior_RF / sum(unstd.posterior_RF)
+
+# Get the samples
+samples <- sample(p_grid , prob=posterior_RF , size=1e4 , replace=TRUE )
+
+# Sample all possible p's, weigh them with posterior likelihood of each value of p
+w <- rbinom( 1e4 , size = 2 , prob = samples)
+
+# Make the histogram
+simplehist(w)
 
 ```
 
